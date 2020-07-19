@@ -66,9 +66,28 @@ def login():
         return render_template('auth/login.html')
 
 
-bp.before_app_request
-def load_logged_in_user():
+@bp.before_app_request # registers a function that runs before the view function, no matter what URL is requested
+def load_logged_in_user(): # checks if a user id is stored in the session and gets that user’s data from the database, storing it on g.user, which lasts for the length of the request
     user_id = session.get('user_id')
 
     if user_id is None:
         g.user = None
+    else:
+        g.user = db.execute('SELECT * FROM user WHERE id = ?'.format(user_id,)).fetchone()
+
+
+@bp.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('index'))
+
+
+def login_required(view): # This decorator returns a new view function that wraps the original view it’s applied to. The new function checks if a user is loaded and redirects to the login page otherwise
+    @functools.wraps(view)
+    def wrapped_view(**kwargs):
+        if g.user is None:
+            return redirect(url_for('auth.login')) # The url_for() function generates the URL to a view based on a name and arguments. The name associated with a view is also called the endpoint, and by default it’s the same as the name of the view function.
+        
+        return view(**kwargs)
+    
+    return wrapped_view
